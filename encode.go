@@ -68,7 +68,7 @@ func (e Encoder) Encode(dst interface{}) error {
 // EncodeToString encodes dst as a form and returns it as a string.
 func EncodeToString(dst interface{}) (string, error) {
 	v := reflect.ValueOf(dst)
-	n, err := encodeToNode(v, false)
+	n, err := encodeToNode(v, defaultKeepZeros)
 	if err != nil {
 		return "", err
 	}
@@ -79,7 +79,7 @@ func EncodeToString(dst interface{}) (string, error) {
 // EncodeToValues encodes dst as a form and returns it as Values.
 func EncodeToValues(dst interface{}) (url.Values, error) {
 	v := reflect.ValueOf(dst)
-	n, err := encodeToNode(v, false)
+	n, err := encodeToNode(v, defaultKeepZeros)
 	if err != nil {
 		return nil, err
 	}
