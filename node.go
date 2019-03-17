@@ -32,22 +32,22 @@ func (n node) merge(d, e rune, p string, vs *url.Values) {
 }
 
 // TODO: Add tests for implicit indexing.
-func parseValues(d, e rune, vs url.Values, canIndexFirstLevelOrdinally bool) node {
+func parseValues(o Options, vs url.Values, canIndexFirstLevelOrdinally bool) node {
 	// NOTE: Because of the flattening of potentially multiple strings to one key, implicit indexing works:
 	//    i. At the first level;   e.g. Foo.Bar=A&Foo.Bar=B     becomes 0.Foo.Bar=A&1.Foo.Bar=B
 	//   ii. At the last level;    e.g. Foo.Bar._=A&Foo.Bar._=B becomes Foo.Bar.0=A&Foo.Bar.1=B
 	// TODO: At in-between levels; e.g. Foo._.Bar=A&Foo._.Bar=B becomes Foo.0.Bar=A&Foo.1.Bar=B
 	//       (This last one requires that there only be one placeholder in order for it to be unambiguous.)
-
+	d := string(o.Delimiter)
 	m := map[string]string{}
 	for k, ss := range vs {
-		indexLastLevelOrdinally := strings.HasSuffix(k, string(d)+implicitKey)
+		indexLastLevelOrdinally := strings.HasSuffix(k, d+o.ImplicitKey)
 
 		for i, s := range ss {
 			if canIndexFirstLevelOrdinally {
-				k = strconv.Itoa(i) + string(d) + k
+				k = strconv.Itoa(i) + d + k
 			} else if indexLastLevelOrdinally {
-				k = strings.TrimSuffix(k, implicitKey) + strconv.Itoa(i)
+				k = strings.TrimSuffix(k, o.ImplicitKey) + strconv.Itoa(i)
 			}
 
 			m[k] = s
@@ -56,7 +56,7 @@ func parseValues(d, e rune, vs url.Values, canIndexFirstLevelOrdinally bool) nod
 
 	n := node{}
 	for k, s := range m {
-		n = n.split(d, e, k, s)
+		n = n.split(o.Delimiter, o.Escape, k, s)
 	}
 	return n
 }

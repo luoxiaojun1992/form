@@ -16,27 +16,24 @@ import (
 
 // NewDecoder returns a new form Decoder.
 func NewDecoder(r io.Reader) *Decoder {
-	return &Decoder{r, defaultDelimiter, defaultEscape, false, false}
+	return &Decoder{r, Default}
 }
 
 // Decoder decodes data from a form (application/x-www-form-urlencoded).
 type Decoder struct {
-	r             io.Reader
-	d             rune
-	e             rune
-	ignoreUnknown bool
-	ignoreCase    bool
+	r io.Reader
+	Options
 }
 
 // DelimitWith sets r as the delimiter used for composite keys by Decoder d and returns the latter; it is '.' by default.
 func (d *Decoder) DelimitWith(r rune) *Decoder {
-	d.d = r
+	d.Delimiter = r
 	return d
 }
 
 // EscapeWith sets r as the escape used for delimiters (and to escape itself) by Decoder d and returns the latter; it is '\\' by default.
 func (d *Decoder) EscapeWith(r rune) *Decoder {
-	d.e = r
+	d.Escape = r
 	return d
 }
 
@@ -51,19 +48,20 @@ func (d Decoder) Decode(dst interface{}) error {
 		return err
 	}
 	v := reflect.ValueOf(dst)
-	return d.decodeNode(v, parseValues(d.d, d.e, vs, canIndexOrdinally(v)))
+	n := parseValues(d.Options, vs, canIndexOrdinally(v))
+	return d.decodeNode(v, n)
 }
 
 // IgnoreUnknownKeys if set to true it will make the Decoder ignore values
 // that are not found in the destination object instead of returning an error.
-func (d *Decoder) IgnoreUnknownKeys(ignoreUnknown bool) {
-	d.ignoreUnknown = ignoreUnknown
+func (d *Decoder) IgnoreUnknownKeys(t bool) {
+	d.Tolerant = t
 }
 
 // IgnoreCase if set to true it will make the Decoder try to set values in the
 // destination object even if the case does not match.
-func (d *Decoder) IgnoreCase(ignoreCase bool) {
-	d.ignoreCase = ignoreCase
+func (d *Decoder) IgnoreCase(c bool) {
+	d.Caseless = c
 }
 
 // DecodeString decodes src into dst.
@@ -73,13 +71,15 @@ func (d Decoder) DecodeString(dst interface{}, src string) error {
 		return err
 	}
 	v := reflect.ValueOf(dst)
-	return d.decodeNode(v, parseValues(d.d, d.e, vs, canIndexOrdinally(v)))
+	n := parseValues(d.Options, vs, canIndexOrdinally(v))
+	return d.decodeNode(v, n)
 }
 
 // DecodeValues decodes vs into dst.
 func (d Decoder) DecodeValues(dst interface{}, vs url.Values) error {
 	v := reflect.ValueOf(dst)
-	return d.decodeNode(v, parseValues(d.d, d.e, vs, canIndexOrdinally(v)))
+	n := parseValues(d.Options, vs, canIndexOrdinally(v))
+	return d.decodeNode(v, n)
 }
 
 // DecodeString decodes src into dst.
@@ -166,10 +166,10 @@ func (d Decoder) decodeValue(v reflect.Value, x interface{}) {
 func (d Decoder) decodeStruct(v reflect.Value, x interface{}) {
 	t := v.Type()
 	for k, c := range getNode(x) {
-		if f, ok := findField(v, k, d.ignoreCase); !ok && k == "" {
+		if f, ok := findField(d.Options, v, k); !ok && k == "" {
 			panic(getString(x) + " cannot be decoded as " + t.String())
 		} else if !ok {
-			if !d.ignoreUnknown {
+			if !d.Tolerant {
 				panic(k + " doesn't exist in " + t.String())
 			}
 		} else if !f.CanSet() {
@@ -241,11 +241,11 @@ func (d Decoder) decodeSlice(v reflect.Value, x interface{}) {
 	}
 
 	// NOTE: Implicit indexing is currently done at the parseValues level,
-	//       so if if an implicitKey reaches here it will always replace the last.
+	//       so if if an ImplicitKey reaches here it will always replace the last.
 	implicit := 0
 	for k, c := range getNode(x) {
 		var i int
-		if k == implicitKey {
+		if k == d.ImplicitKey {
 			i = implicit
 			implicit++
 		} else {

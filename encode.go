@@ -18,43 +18,41 @@ import (
 
 // NewEncoder returns a new form Encoder.
 func NewEncoder(w io.Writer) *Encoder {
-	return &Encoder{w, defaultDelimiter, defaultEscape, false}
+	return &Encoder{w, Default}
 }
 
 // Encoder provides a way to encode to a Writer.
 type Encoder struct {
 	w io.Writer
-	d rune
-	e rune
-	z bool
+	Options
 }
 
 // DelimitWith sets r as the delimiter used for composite keys by Encoder e and returns the latter; it is '.' by default.
 func (e *Encoder) DelimitWith(r rune) *Encoder {
-	e.d = r
+	e.Delimiter = r
 	return e
 }
 
 // EscapeWith sets r as the escape used for delimiters (and to escape itself) by Encoder e and returns the latter; it is '\\' by default.
 func (e *Encoder) EscapeWith(r rune) *Encoder {
-	e.e = r
+	e.Escape = r
 	return e
 }
 
 // KeepZeros sets whether Encoder e should keep zero (default) values in their literal form when encoding, and returns the former; by default zero values are not kept, but are rather encoded as the empty string.
 func (e *Encoder) KeepZeros(z bool) *Encoder {
-	e.z = z
+	e.Zeros = z
 	return e
 }
 
 // Encode encodes dst as form and writes it out using the Encoder's Writer.
 func (e Encoder) Encode(dst interface{}) error {
 	v := reflect.ValueOf(dst)
-	n, err := encodeToNode(v, e.z)
+	n, err := e.encodeToNode(v)
 	if err != nil {
 		return err
 	}
-	s := n.values(e.d, e.e).Encode()
+	s := n.values(e.Delimiter, e.Escape).Encode()
 	l, err := io.WriteString(e.w, s)
 	switch {
 	case err != nil:
@@ -67,126 +65,128 @@ func (e Encoder) Encode(dst interface{}) error {
 
 // EncodeToString encodes dst as a form and returns it as a string.
 func EncodeToString(dst interface{}) (string, error) {
-	return EncodeToStringWith(dst, defaultDelimiter, defaultEscape, defaultKeepZeros)
+	return EncodeToStringWith(dst, Default)
 }
 
-// EncodeToStringWith encodes dst as a form with delimiter d, escape e, keeping zero values if z, and returns it as a string.
-func EncodeToStringWith(dst interface{}, d rune, e rune, z bool) (string, error) {
+// EncodeToStringWith encodes dst as a form with options o, and returns it as a string.
+func EncodeToStringWith(dst interface{}, o Options) (string, error) {
+	e := Encoder{nil, o}
 	v := reflect.ValueOf(dst)
-	n, err := encodeToNode(v, z)
+	n, err := e.encodeToNode(v)
 	if err != nil {
 		return "", err
 	}
-	vs := n.values(d, e)
+	vs := n.values(o.Delimiter, o.Escape)
 	return vs.Encode(), nil
 }
 
 // EncodeToValues encodes dst as a form and returns it as Values.
 func EncodeToValues(dst interface{}) (url.Values, error) {
-	return EncodeToValuesWith(dst, defaultDelimiter, defaultEscape, defaultKeepZeros)
+	return EncodeToValuesWith(dst, Default)
 }
 
-// EncodeToValuesWith encodes dst as a form with delimiter d, escape e, keeping zero values if z, and returns it as Values.
-func EncodeToValuesWith(dst interface{}, d rune, e rune, z bool) (url.Values, error) {
+// EncodeToValuesWith encodes dst as a form with options o, and returns it as Values.
+func EncodeToValuesWith(dst interface{}, o Options) (url.Values, error) {
+	e := Encoder{nil, o}
 	v := reflect.ValueOf(dst)
-	n, err := encodeToNode(v, z)
+	n, err := e.encodeToNode(v)
 	if err != nil {
 		return nil, err
 	}
-	vs := n.values(d, e)
+	vs := n.values(o.Delimiter, o.Escape)
 	return vs, nil
 }
 
-func encodeToNode(v reflect.Value, z bool) (n node, err error) {
+func (e Encoder) encodeToNode(v reflect.Value) (n node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%v", r)
 		}
 	}()
-	return getNode(encodeValue(v, z)), nil
+	return getNode(e.encodeValue(v)), nil
 }
 
-func encodeValue(v reflect.Value, z bool) interface{} {
+func (e Encoder) encodeValue(v reflect.Value) interface{} {
 	t := v.Type()
 	k := v.Kind()
 
 	if s, ok := marshalValue(v); ok {
 		return s
-	} else if !z && isEmptyValue(v) {
+	} else if !e.Zeros && isEmptyValue(v) {
 		return "" // Treat the zero value as the empty string.
 	}
 
 	switch k {
 	case reflect.Ptr, reflect.Interface:
-		return encodeValue(v.Elem(), z)
+		return e.encodeValue(v.Elem())
 	case reflect.Struct:
 		if t.ConvertibleTo(timeType) {
-			return encodeTime(v)
+			return e.encodeTime(v)
 		} else if t.ConvertibleTo(urlType) {
-			return encodeURL(v)
+			return e.encodeURL(v)
 		}
-		return encodeStruct(v, z)
+		return e.encodeStruct(v)
 	case reflect.Slice:
-		return encodeSlice(v, z)
+		return e.encodeSlice(v)
 	case reflect.Array:
-		return encodeArray(v, z)
+		return e.encodeArray(v)
 	case reflect.Map:
-		return encodeMap(v, z)
+		return e.encodeMap(v)
 	case reflect.Invalid, reflect.Uintptr, reflect.UnsafePointer, reflect.Chan, reflect.Func:
 		panic(t.String() + " has unsupported kind " + t.Kind().String())
 	default:
-		return encodeBasic(v)
+		return e.encodeBasic(v)
 	}
 }
 
-func encodeStruct(v reflect.Value, z bool) interface{} {
+func (e Encoder) encodeStruct(v reflect.Value) interface{} {
 	t := v.Type()
 	n := node{}
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		k, oe := fieldInfo(f)
+		k, oe := fieldInfo(e.Options, f)
 
 		if k == "-" {
 			continue
 		} else if fv := v.Field(i); oe && isEmptyValue(fv) {
 			delete(n, k)
 		} else {
-			n[k] = encodeValue(fv, z)
+			n[k] = e.encodeValue(fv)
 		}
 	}
 	return n
 }
 
-func encodeMap(v reflect.Value, z bool) interface{} {
+func (e Encoder) encodeMap(v reflect.Value) interface{} {
 	n := node{}
 	for _, i := range v.MapKeys() {
-		k := getString(encodeValue(i, z))
-		n[k] = encodeValue(v.MapIndex(i), z)
+		k := getString(e.encodeValue(i))
+		n[k] = e.encodeValue(v.MapIndex(i))
 	}
 	return n
 }
 
-func encodeArray(v reflect.Value, z bool) interface{} {
+func (e Encoder) encodeArray(v reflect.Value) interface{} {
 	n := node{}
 	for i := 0; i < v.Len(); i++ {
-		n[strconv.Itoa(i)] = encodeValue(v.Index(i), z)
+		n[strconv.Itoa(i)] = e.encodeValue(v.Index(i))
 	}
 	return n
 }
 
-func encodeSlice(v reflect.Value, z bool) interface{} {
+func (e Encoder) encodeSlice(v reflect.Value) interface{} {
 	t := v.Type()
 	if t.Elem().Kind() == reflect.Uint8 {
 		return string(v.Bytes()) // Encode byte slices as a single string by default.
 	}
 	n := node{}
 	for i := 0; i < v.Len(); i++ {
-		n[strconv.Itoa(i)] = encodeValue(v.Index(i), z)
+		n[strconv.Itoa(i)] = e.encodeValue(v.Index(i))
 	}
 	return n
 }
 
-func encodeTime(v reflect.Value) string {
+func (Encoder) encodeTime(v reflect.Value) string {
 	t := v.Convert(timeType).Interface().(time.Time)
 	if t.Year() == 0 && (t.Month() == 0 || t.Month() == 1) && (t.Day() == 0 || t.Day() == 1) {
 		return t.Format("15:04:05.999999999Z07:00")
@@ -196,12 +196,12 @@ func encodeTime(v reflect.Value) string {
 	return t.Format("2006-01-02T15:04:05.999999999Z07:00")
 }
 
-func encodeURL(v reflect.Value) string {
+func (Encoder) encodeURL(v reflect.Value) string {
 	u := v.Convert(urlType).Interface().(url.URL)
 	return u.String()
 }
 
-func encodeBasic(v reflect.Value) string {
+func (Encoder) encodeBasic(v reflect.Value) string {
 	t := v.Type()
 	switch k := t.Kind(); k {
 	case reflect.Bool:
@@ -270,9 +270,9 @@ func canIndexOrdinally(v reflect.Value) bool {
 	return false
 }
 
-func fieldInfo(f reflect.StructField) (k string, oe bool) {
+func fieldInfo(o Options, f reflect.StructField) (k string, oe bool) {
 	if f.PkgPath != "" { // Skip private fields.
-		return omittedKey, oe
+		return o.OmittedKey, oe
 	}
 
 	k = f.Name
@@ -291,25 +291,25 @@ func fieldInfo(f reflect.StructField) (k string, oe bool) {
 	return k, oe
 }
 
-func findField(v reflect.Value, n string, ignoreCase bool) (reflect.Value, bool) {
+func findField(o Options, v reflect.Value, n string) (reflect.Value, bool) {
 	t := v.Type()
 	l := v.NumField()
 
 	var lowerN string
 	caseInsensitiveMatch := -1
-	if ignoreCase {
+	if o.Caseless {
 		lowerN = strings.ToLower(n)
 	}
 
 	// First try named fields.
 	for i := 0; i < l; i++ {
 		f := t.Field(i)
-		k, _ := fieldInfo(f)
-		if k == omittedKey {
+		k, _ := fieldInfo(o, f)
+		if k == o.OmittedKey {
 			continue
 		} else if n == k {
 			return v.Field(i), true
-		} else if ignoreCase && lowerN == strings.ToLower(k) {
+		} else if o.Caseless && lowerN == strings.ToLower(k) {
 			caseInsensitiveMatch = i
 		}
 	}
@@ -322,8 +322,8 @@ func findField(v reflect.Value, n string, ignoreCase bool) (reflect.Value, bool)
 	// Then try anonymous (embedded) fields.
 	for i := 0; i < l; i++ {
 		f := t.Field(i)
-		k, _ := fieldInfo(f)
-		if k == omittedKey || !f.Anonymous { // || k != "" ?
+		k, _ := fieldInfo(o, f)
+		if k == o.OmittedKey || !f.Anonymous { // || k != "" ?
 			continue
 		}
 		fv := v.Field(i)
@@ -336,7 +336,7 @@ func findField(v reflect.Value, n string, ignoreCase bool) (reflect.Value, bool)
 		if fk != reflect.Struct {
 			continue
 		}
-		if ev, ok := findField(fv, n, ignoreCase); ok {
+		if ev, ok := findField(o, fv, n); ok {
 			return ev, true
 		}
 	}

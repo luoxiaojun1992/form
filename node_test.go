@@ -52,21 +52,21 @@ var escapingTestCases = []struct {
 	a, b string
 	d, e rune
 }{
-	{"Foo", "Foo", defaultDelimiter, defaultEscape},
+	{"Foo", "Foo", StandardDelimiter, StandardEscape},
 	{"Foo", "Foo", '/', '^'},
-	{"Foo.Bar.Qux", "Foo\\.Bar\\.Qux", defaultDelimiter, defaultEscape},
+	{"Foo.Bar.Qux", "Foo\\.Bar\\.Qux", StandardDelimiter, StandardEscape},
 	{"Foo.Bar.Qux", "Foo.Bar.Qux", '/', '^'},
-	{"Foo/Bar/Qux", "Foo/Bar/Qux", defaultDelimiter, defaultEscape},
+	{"Foo/Bar/Qux", "Foo/Bar/Qux", StandardDelimiter, StandardEscape},
 	{"Foo/Bar/Qux", "Foo^/Bar^/Qux", '/', '^'},
-	{"0", "0", defaultDelimiter, defaultEscape},
+	{"0", "0", StandardDelimiter, StandardEscape},
 	{"0", "0", '/', '^'},
-	{"0.1.2", "0\\.1\\.2", defaultDelimiter, defaultEscape},
+	{"0.1.2", "0\\.1\\.2", StandardDelimiter, StandardEscape},
 	{"0.1.2", "0.1.2", '/', '^'},
-	{"0/1/2", "0/1/2", defaultDelimiter, defaultEscape},
+	{"0/1/2", "0/1/2", StandardDelimiter, StandardEscape},
 	{"0/1/2", "0^/1^/2", '/', '^'},
-	{"A\\B", "A\\\\B", defaultDelimiter, defaultEscape},
+	{"A\\B", "A\\\\B", StandardDelimiter, StandardEscape},
 	{"A\\B", "A\\B", '/', '^'},
-	{"A^B", "A^B", defaultDelimiter, defaultEscape},
+	{"A^B", "A^B", StandardDelimiter, StandardEscape},
 	{"A^B", "A^^B", '/', '^'},
 }
 

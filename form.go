@@ -6,10 +6,38 @@
 package form
 
 const (
-	implicitKey = "_"
-	omittedKey  = "-"
+	standardZeros    = false
+	standardTolerant = false
+	standardCaseless = false
 
-	defaultDelimiter = '.'
-	defaultEscape    = '\\'
-	defaultKeepZeros = false
+	StandardDelimiter   = '.'
+	StandardEscape      = '\\'
+	StandardImplicitKey = "_"
+	StandardOmittedKey  = "-"
 )
+
+// Options provides a way to control encoding & decoding behaviors.
+type Options struct {
+	unexported  int8
+	Zeros       bool
+	Tolerant    bool
+	Caseless    bool
+	Delimiter   rune
+	Escape      rune
+	ImplicitKey string
+	OmittedKey  string
+}
+
+func MakeStandardOptions() Options {
+	return Options{
+		Zeros:       standardZeros,
+		Tolerant:    standardTolerant,
+		Caseless:    standardCaseless,
+		Delimiter:   StandardDelimiter,
+		Escape:      StandardEscape,
+		ImplicitKey: StandardImplicitKey,
+		OmittedKey:  StandardOmittedKey,
+	}
+}
+
+var Default = MakeStandardOptions()
