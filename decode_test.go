@@ -46,7 +46,7 @@ func TestDecode(t *testing.T) {
 	}
 }
 
-func TestDecodeIgnoreUnknown(t *testing.T) {
+func TestDecodeIgnoreUnknownKeys(t *testing.T) {
 	type simpleStruct struct{ A string }
 	var dst simpleStruct
 	values := url.Values{
