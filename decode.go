@@ -94,8 +94,8 @@ func DecodeValues(dst interface{}, vs url.Values) error {
 
 func (d Decoder) decodeNode(v reflect.Value, n node) (err error) {
 	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("%v", e)
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 

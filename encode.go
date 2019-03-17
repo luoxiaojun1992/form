@@ -99,8 +99,8 @@ func EncodeToValuesWith(dst interface{}, d rune, e rune, z bool) (url.Values, er
 
 func encodeToNode(v reflect.Value, z bool) (n node, err error) {
 	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("%v", e)
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
 		}
 	}()
 	return getNode(encodeValue(v, z)), nil
