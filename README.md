@@ -140,16 +140,15 @@ foo := map[string]interface{}{"b": false, "i": 0}
 ...the following...
 
 ```go
-form.EncodeToString(foo) // i.e. keepZeros == false
+form.EncodeToString(foo) // i.e. Zeros == false
 ```
 
 ...will result in `"b=&i="`, whereas...
 
 ```go
-keepZeros := true
-delimiter := '.'
-escape := '\\'
-form.EncodeToStringWith(foo, delimiter, escape, keepZeros)
+o := form.MakeStandardOptions()
+o.Zeros = true
+form.EncodeToStringWith(foo, o)
 ```
 
 ...will result in `"b=false&i=0"`.
