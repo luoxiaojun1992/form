@@ -101,7 +101,12 @@ func encodeToNode(v reflect.Value, z bool) (n node, err error) {
 			err = fmt.Errorf("%v", e)
 		}
 	}()
-	return getNode(encodeValue(v, z)), nil
+	val := encodeValue(v, z)
+	if val != nil {
+		return getNode(val), nil
+	} else {
+		return nil, errors.New("empty value")
+	}
 }
 
 func encodeValue(v reflect.Value, z bool) interface{} {
