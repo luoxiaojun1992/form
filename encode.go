@@ -111,7 +111,7 @@ func encodeValue(v reflect.Value, z bool) interface{} {
 	if s, ok := marshalValue(v); ok {
 		return s
 	} else if !z && isEmptyValue(v) {
-		return "" // Treat the zero value as the empty string.
+		return "0" // Treat the zero value as the empty string.
 	}
 
 	switch k {
