@@ -14,17 +14,21 @@ type node map[string]interface{}
 
 func (n node) values(d, e rune) url.Values {
 	vs := url.Values{}
-	n.merge(d, e, "", &vs)
+	n.merge(d, e, "", &vs, false)
 	return vs
 }
 
-func (n node) merge(d, e rune, p string, vs *url.Values) {
+func (n node) merge(d, e rune, p string, vs *url.Values, isRoot bool) {
 	for k, x := range n {
 		switch y := x.(type) {
 		case string:
-			vs.Add(p+escape(d, e, k), y)
+			if isRoot {
+				vs.Add(p+k, y)
+			} else {
+				vs.Add(p+k+"]", y)
+			}
 		case node:
-			y.merge(d, e, p+escape(d, e, k)+string(d), vs)
+			y.merge(d, e, p+k+"[", vs, true)
 		default:
 			panic("value is neither string nor node")
 		}
@@ -68,7 +72,7 @@ func splitPath(d, e rune, path string) (k, rest string) {
 		case !esc && r == e:
 			esc = true
 		case !esc && r == d:
-			return unescape(d, e, path[:i]), path[i+1:]
+			return path[:i], path[i+1:]
 		default:
 			esc = false
 		}
