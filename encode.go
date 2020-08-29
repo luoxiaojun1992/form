@@ -119,8 +119,19 @@ func encodeValue(v reflect.Value, z bool) interface{} {
 		if v.Kind() == reflect.String {
 			return ""
 		}
-		if v.IsNil() {
+		if v.Kind() == reflect.Bool {
+			return "0"
+		}
+		if v.Kind() == reflect.Map {
 			return nil
+		}
+		if v.Kind() == reflect.Slice {
+			return nil
+		}
+		if v.Kind() == reflect.Interface {
+			if v.IsNil() {
+				return nil
+			}
 		}
 		return "0" // Treat the zero value as the empty string.
 	}
