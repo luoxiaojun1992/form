@@ -111,6 +111,12 @@ func encodeValue(v reflect.Value, z bool) interface{} {
 	if s, ok := marshalValue(v); ok {
 		return s
 	} else if !z && isEmptyValue(v) {
+		if v.Kind() == reflect.String {
+			return ""
+		}
+		if v.IsNil() {
+			return nil
+		}
 		return "0" // Treat the zero value as the empty string.
 	}
 
@@ -149,7 +155,10 @@ func encodeStruct(v reflect.Value, z bool) interface{} {
 		} else if fv := v.Field(i); oe && isEmptyValue(fv) {
 			delete(n, k)
 		} else {
-			n[k] = encodeValue(fv, z)
+			val := encodeValue(fv, z)
+			if val != nil {
+				n[k] = val
+			}
 		}
 	}
 	return n
@@ -159,7 +168,10 @@ func encodeMap(v reflect.Value, z bool) interface{} {
 	n := node{}
 	for _, i := range v.MapKeys() {
 		k := getString(encodeValue(i, z))
-		n[k] = encodeValue(v.MapIndex(i), z)
+		val := encodeValue(v.MapIndex(i), z)
+		if val != nil {
+			n[k] = val
+		}
 	}
 	return n
 }
@@ -167,7 +179,10 @@ func encodeMap(v reflect.Value, z bool) interface{} {
 func encodeArray(v reflect.Value, z bool) interface{} {
 	n := node{}
 	for i := 0; i < v.Len(); i++ {
-		n[strconv.Itoa(i)] = encodeValue(v.Index(i), z)
+		val := encodeValue(v.Index(i), z)
+		if val != nil {
+			n[strconv.Itoa(i)] = val
+		}
 	}
 	return n
 }
@@ -179,7 +194,10 @@ func encodeSlice(v reflect.Value, z bool) interface{} {
 	}
 	n := node{}
 	for i := 0; i < v.Len(); i++ {
-		n[strconv.Itoa(i)] = encodeValue(v.Index(i), z)
+		val := encodeValue(v.Index(i), z)
+		if val != nil {
+			n[strconv.Itoa(i)] = val
+		}
 	}
 	return n
 }
