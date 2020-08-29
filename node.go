@@ -14,7 +14,7 @@ type node map[string]interface{}
 
 func (n node) values(d, e rune) url.Values {
 	vs := url.Values{}
-	n.merge(d, e, "", &vs, false)
+	n.merge(d, e, "", &vs, true)
 	return vs
 }
 
@@ -28,7 +28,7 @@ func (n node) merge(d, e rune, p string, vs *url.Values, isRoot bool) {
 				vs.Add(p+k+"]", y)
 			}
 		case node:
-			y.merge(d, e, p+k+"[", vs, true)
+			y.merge(d, e, p+k+"[", vs, false)
 		default:
 			panic("value is neither string nor node")
 		}
