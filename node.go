@@ -28,7 +28,11 @@ func (n node) merge(d, e rune, p string, vs *url.Values, isRoot bool) {
 				vs.Add(p+"["+k+"]", y)
 			}
 		case node:
-			y.merge(d, e, p+"["+k+"]", vs, false)
+			if isRoot {
+				y.merge(d, e, p+k, vs, false)
+			} else {
+				y.merge(d, e, p+"["+k+"]", vs, false)
+			}
 		default:
 			panic("value is neither string nor node")
 		}
